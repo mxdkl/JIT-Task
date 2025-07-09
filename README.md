@@ -14,6 +14,12 @@ By Max Dekel
 
     `docker run -v $(pwd)/<target-repo>:/repo sca-task`
 
+## Testing
+
+1. Create a virtual python enviroment in JIT-Task
+
+2. From JIT-Task/, run `./<venv>/bin/pytest`
+
 ## Bonus
 
 A -> B -> Z (vulnerable)
