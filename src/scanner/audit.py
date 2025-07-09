@@ -90,6 +90,11 @@ def _create_dependency_graphs(name: str, version: str) -> List[str]:
     if cache_key in dependency_graph_cache:
         return dependency_graph_cache[cache_key]
 
+    """
+    npm will put indirect project depencencies in node_modules/
+    this means that it is not reliable for getting the true dependency graph.
+    npm list is used instead
+    """
     graphs = []
     result = subprocess.run(
         ['npm', 'list', '--all', '--json'],
