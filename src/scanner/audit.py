@@ -9,6 +9,15 @@ REPO_DIR = "/repo"
 PACKAGE_LOCK = {}
 
 
+"""
+memoization cache
+needed becuase each output is uniquly idenitied by (ghsa id, name, version and depenency graph). 
+it is impossible to tell if 2 results will be the same without constructing the entire object.
+"""
+dependency_graph_cache = {}
+package_version_cache = {}
+
+
 def init():
     # load package-lock.json file
     try:
@@ -32,13 +41,16 @@ def run_npm_audit() -> Optional[Dict[str, Any]]:
 
 def _parse_audit_results(audit_json: dict) -> Optional[Dict[str, Any]]:
     vulnerabilities = {"results": []}
- 
+
+    seen = set()
     for name, info in audit_json.get("vulnerabilities", {}).items():
         for vuln in info.get("via", []):
-            if isinstance(vuln, str): # if the vulnerability is a string, vuln is not a direct vulnerability
+            if isinstance(vuln, str):
                 continue
-            if vuln.get("name") != name: # another check to ensure the vulnerability is in this package
+            if vuln.get("name") != name:
                 continue
+
+            ghsa_id = vuln.get("url") 
 
             for node in info.get("nodes", []):
                 version = _get_package_version(node)
@@ -48,24 +60,36 @@ def _parse_audit_results(audit_json: dict) -> Optional[Dict[str, Any]]:
 
                 graphs = _create_dependency_graphs(name, version)
                 for graph in graphs:
+                    result_key = (ghsa_id, name, version, graph)
+                    if result_key in seen:
+                        continue
+                    seen.add(result_key)
                     res_obj = {
-                        "GHSA ID": vuln.get("url"),
+                        "GHSA ID": ghsa_id,
                         "name": name,
                         "version": version,
                         "dependency_graph": graph
                     }
-                    if res_obj not in vulnerabilities["results"]:
-                        vulnerabilities["results"].append(res_obj)
+                    vulnerabilities["results"].append(res_obj)
 
     pretty_printed_vulnerabilities = json.dumps(vulnerabilities, indent=4)
     return pretty_printed_vulnerabilities
 
 def _get_package_version(node: str) -> str:
-    # parese package-lock.json to get the version of the package
-    if node in PACKAGE_LOCK.get("packages", {}):
-        return PACKAGE_LOCK["packages"][node].get("version", "unknown")
+    #memoize
+    if node in package_version_cache:
+        return package_version_cache[node]
     
+    version = PACKAGE_LOCK.get("packages", {}).get(node, {}).get("version", "unknown")
+    package_version_cache[node] = version
+    return version
+
 def _create_dependency_graphs(name: str, version: str) -> List[str]:
+    # memoize
+    cache_key = (name, version)
+    if cache_key in dependency_graph_cache:
+        return dependency_graph_cache[cache_key]
+
     graphs = []
     result = subprocess.run(
         ['npm', 'list', '--all', '--json'],
@@ -75,6 +99,7 @@ def _create_dependency_graphs(name: str, version: str) -> List[str]:
     )
     results = json.loads(result.stdout)
 
+    # non recursive tree search
     stack = [(results, [])]
     while stack:
         node, path = stack.pop()
@@ -85,12 +110,11 @@ def _create_dependency_graphs(name: str, version: str) -> List[str]:
                 graphs.append(" -> ".join(new_path))
             stack.append((dep_data, new_path))
 
+    dependency_graph_cache[cache_key] = graphs
     return graphs
 
-    
+
 if __name__ == "__main__":
-    # for testing purposes
-    REPO_DIR = "/home/player1/Desktop/TestProj"
+    REPO_DIR = input("repo dir: ")
     vulnerabilities = run_npm_audit()
     print(vulnerabilities)
-
