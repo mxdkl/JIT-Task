@@ -6,8 +6,9 @@ from nodesemver import satisfies
 
 
 REPO_DIR = "/repo"
-PACKAGE_LOCK = {}
 
+PACKAGE_LOCK = {}
+NPM_LIST_TREE = {}
 
 """
 memoization cache
@@ -16,6 +17,7 @@ it is impossible to tell if 2 results will be the same without constructing the 
 """
 dependency_graph_cache = {}
 package_version_cache = {}
+
 
 
 def init():
@@ -27,6 +29,21 @@ def init():
     except FileNotFoundError:
         print("package-lock.json not found. Please ensure you are in a valid Node.js project directory.")
         return []
+
+    # run npm list --all --json
+    global NPM_LIST_TREE
+    try:
+        result = subprocess.run(
+            ['npm', 'list', '--all', '--json'],
+            capture_output=True,
+            text=True,
+            cwd=REPO_DIR,
+        )
+        NPM_LIST_TREE = json.loads(result.stdout)
+    except Exception as e:
+        print(f"Failed to run npm list: {e}. Make sure you have all packages installed.")
+        NPM_LIST_TREE = None
+
 
 def run_npm_audit() -> Optional[Dict[str, Any]]:
     init()
@@ -57,7 +74,7 @@ def _parse_audit_results(audit_json: dict) -> Optional[Dict[str, Any]]:
 
                 if not satisfies(version, vuln.get("range")):
                     continue
-
+                
                 graphs = _create_dependency_graphs(name, version)
                 for graph in graphs:
                     result_key = (ghsa_id, name, version, graph)
@@ -96,13 +113,9 @@ def _create_dependency_graphs(name: str, version: str) -> List[str]:
     npm list is used instead
     """
     graphs = []
-    result = subprocess.run(
-        ['npm', 'list', '--all', '--json'],
-        capture_output=True,
-        text=True,
-        cwd=REPO_DIR,
-    )
-    results = json.loads(result.stdout)
+    results = NPM_LIST_TREE
+    if results is None:
+        return graphs
 
     # non recursive tree search
     stack = [(results, [])]
