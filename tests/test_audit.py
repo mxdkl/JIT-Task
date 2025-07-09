@@ -79,10 +79,8 @@ def test_create_dependency_graphs():
         }
     }
 
-    with patch("src.scanner.audit.subprocess.run") as mock_run:
-        mock_run.return_value.stdout = json.dumps(fake_npm_list)
-        # clear cache to avoid interference
-        audit.dependency_graph_cache.clear()
-        graphs = audit._create_dependency_graphs("baz", "3.0.0")
-        # should find the dependency path to baz
-        assert any("foo -> bar -> baz" in g for g in graphs)
+    # Set the global NPM_LIST_TREE directly
+    audit.NPM_LIST_TREE = fake_npm_list
+    audit.dependency_graph_cache.clear()
+    graphs = audit._create_dependency_graphs("baz", "3.0.0")
+    assert any("foo -> bar -> baz" in g for g in graphs)
