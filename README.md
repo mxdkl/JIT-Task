@@ -16,9 +16,11 @@ By Max Dekel
 
 ## Testing
 
-1. Create a virtual python enviroment in JIT-Task
+1. Create a virtual python environment in JIT-Task
 
-2. From JIT-Task/, run `./<venv>/bin/pytest`
+2. Activate the environment and `pip install -r requirements.txt`
+
+3. From JIT-Task/, run `./<venv>/bin/pytest`
 
 ## Bonus
 
