@@ -1,6 +1,4 @@
-# Security Researcher - SCA Task
-
-By Max Dekel
+# Dependency graph viewer for vulnerable npm packages 
 
 ## Running
 
@@ -21,18 +19,3 @@ By Max Dekel
 2. Activate the environment and `pip install -r requirements.txt`
 
 3. From JIT-Task/, run `./<venv>/bin/pytest`
-
-## Bonus
-
-A -> B -> Z (vulnerable)
-
-How would you discover which version of A removes the vulnerable version of
-Z?
-
-1. I would use `npm view A versions` to view all published versions of A in order.
-
-2. For each version, use `npm view A@<version> dependencies --json` to see its dependencies.
-
-3. Repeat recursively for all of As dependencies until a patched version of Z is pulled
-
-4. This should get a patched version of Z while being the smallest possible upgrade of A
